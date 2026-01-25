@@ -1,0 +1,486 @@
+#include <stdint.h>
+#include "drivers/terminal.h"
+#include "drivers/keyboard.h"
+#include "drivers/timer.h"
+#include "drivers/power.h"
+#include "syscall/syscall.h"
+#include "syscall/syscall_raw.h"
+#include "lib/libc.h"
+#include "drivers/ata.h"
+#include "fs/fat32.h"
+#include "drivers/rtc.h"
+#include "kernel/task.h"
+#include "kernel/exec.h"
+
+typedef struct regs {
+    uint32_t edi, esi, ebp, esp;
+    uint32_t ebx, edx, ecx, eax;
+    uint32_t gs, fs, es, ds;
+} regs_t;
+
+#define MAX_FILES 16
+static fat32_file_t file_table[MAX_FILES];
+static int file_used[MAX_FILES] = {0};
+
+static int alloc_fd(void) {
+    for (int i = 0; i < MAX_FILES; i++) {
+        if (!file_used[i]) {
+            file_used[i] = 1;
+            return i;
+        }
+    }
+    return -1;
+}
+
+static void free_fd(int fd) {
+    if (fd >= 0 && fd < MAX_FILES) {
+        file_used[fd] = 0;
+    }
+}
+
+void syscall_dispatch(regs_t* r) {
+    switch (r->eax) {
+        case SYS_WRITE:
+            if (r->ebx == 1) {
+                const char* s = (const char*)r->ecx;
+                for (uint32_t i = 0; i < r->edx; i++)
+                    term_putc(s[i]);
+            }
+            r->eax = r->edx;
+            break;
+            
+        case SYS_READ: {
+            char* buf = (char*)r->ebx;
+            uint32_t len = r->ecx;
+            uint32_t i = 0;
+        
+            while (i < len) {
+                int c = kbd_pop();
+                if (c < 0)
+                    break;
+                buf[i++] = (char)c;
+            }
+        
+            r->eax = i;
+            break;
+        }
+
+        case SYS_EXEC: {
+            const char* path = (const char*)r->ebx;
+            r->eax = exec(path);
+            break;
+        }
+        case SYS_GETCWD: {
+            char* buffer = (char*)r->ebx;
+            int size = r->ecx;
+            if (!buffer || size <= 0) {
+                r->eax = -1;
+                break;
+            }
+            
+            int result = fat32_get_current_path(buffer, size);
+            r->eax = result;
+            break;
+        }
+
+        case SYS_YIELD:
+            task_schedule();
+            r->eax = 0;
+            break;
+
+        case SYS_PS: {
+            task_t* t = task_get_list();
+            task_t* start = t;
+        
+            term_puts("PID   STATE     NAME\n");
+        
+            do {
+                char buf[32];
+        
+                itoa(t->pid, buf, 10);
+                term_puts(buf);
+                term_puts("   ");
+        
+                if (t->state == TASK_RUNNING) term_puts("RUN      ");
+                else if (t->state == TASK_SLEEPING) term_puts("SLEEP    ");
+                else term_puts("ZOMB     ");
+        
+                term_puts(t->name);
+                term_puts("\n");
+        
+                t = t->next;
+            } while (t != start);
+        
+            r->eax = 0;
+            break;
+        }
+        
+        
+        case SYS_KILL:
+            r->eax = task_kill(r->ebx); 
+            break;
+        
+        
+        case SYS_EXIT:
+            task_exit();
+            __builtin_unreachable();
+        
+            
+        case SYS_CLEAR:
+            term_clear();
+            r->eax = 0;
+            break;
+            
+        case SYS_DISK_READ: {
+            uint32_t lba = r->ebx;
+            uint8_t* buffer = (uint8_t*)r->ecx;
+            if (buffer == 0) {
+                r->eax = -1;
+                break;
+            }
+            int result = ata_read_sector(lba, buffer);
+            r->eax = result;
+            break;
+        }
+        
+        case SYS_DISK_WRITE: {
+            uint32_t lba = r->ebx;
+            const uint8_t* buffer = (const uint8_t*)r->ecx;
+            if (buffer == 0) {
+                r->eax = -1;
+                break;
+            }
+            int result = ata_write_sector(lba, buffer);
+            r->eax = result;
+            break;
+        }
+        
+        case SYS_SLEEP:
+            task_sleep(r->ebx);
+            r->eax = 0;
+            break;
+        
+        
+        case SYS_CLOSE: {
+            int fd = r->ebx;
+            if (fd < 0 || fd >= MAX_FILES || !file_used[fd]) {
+                r->eax = -1;
+                break;
+            }
+            int result = fat32_close(&file_table[fd]);
+            free_fd(fd);
+            r->eax = result;
+            break;
+        }
+        
+        case SYS_FILE_READ: {
+            int fd = r->ebx;
+            void* buffer = (void*)r->ecx;
+            uint32_t size = r->edx;
+            if (fd < 0 || fd >= MAX_FILES || !file_used[fd]) {
+                r->eax = -1;
+                break;
+            }
+            int result = fat32_read(&file_table[fd], buffer, size);
+            r->eax = result;
+            break;
+        }
+        
+        case SYS_FILE_WRITE: {
+            int fd = r->ebx;
+            const void* buffer = (const void*)r->ecx;
+            uint32_t size = r->edx;
+            if (fd < 0 || fd >= MAX_FILES || !file_used[fd]) {
+                r->eax = -1;
+                break;
+            }
+            int result = fat32_write(&file_table[fd], buffer, size);
+            r->eax = result;
+            break;
+        }
+        
+        case SYS_SEEK: {
+            int fd = r->ebx;
+            int offset = r->ecx;
+            int whence = r->edx;
+            if (fd < 0 || fd >= MAX_FILES || !file_used[fd]) {
+                r->eax = -1;
+                break;
+            }
+            int result = fat32_seek(&file_table[fd], offset, (uint8_t)whence);
+            r->eax = result;
+            break;
+        }
+        
+        case SYS_UNLINK: {
+            const char* path = (const char*)r->ebx;
+            int result = fat32_unlink(path);
+            r->eax = result;
+            break;
+        }
+        
+        case SYS_MKDIR: {
+            const char* path = (const char*)r->ebx;
+            int result = fat32_mkdir(path);
+            r->eax = result;
+            break;
+        }
+
+        case SYS_READDIR: {
+            uint32_t cluster = r->ebx;
+            uint32_t* index = (uint32_t*)r->ecx;
+            fat32_file_info_t* info = (fat32_file_info_t*)r->edx;
+            if (!index || !info) {
+                r->eax = -1;
+                break;
+            }
+            int result = fat32_readdir(cluster, index, info);
+            r->eax = result;
+            break;
+        }
+
+        case SYS_CHDIR: {
+            const char* path = (const char*)r->ebx;
+            int result = fat32_chdir(path);
+            r->eax = result;
+            break;
+        }
+        
+        case SYS_GET_CWD_CLUSTER: {
+            extern uint32_t g_current_dir_cluster;
+            r->eax = g_current_dir_cluster;
+            break;
+        }
+        
+        case SYS_RTC_TIME: {
+            rtc_time_t* out = (rtc_time_t*)r->ebx;
+            if (out)
+                rtc_time_sys(out);
+            r->eax = 0;
+            break;
+        }
+        
+        case SYS_TIMEZONE: {
+            int* out = (int*)r->ebx;
+            if (out)
+                *out = timezone_sys();
+            r->eax = 0;
+            break;
+        }
+
+        case SYS_OPEN: {
+            const char* path = (const char*)r->ebx;
+            int flags = r->ecx;
+            int fd = alloc_fd();
+            if (fd < 0) {
+                r->eax = -1;
+                break;
+            }
+            int result = fat32_open(&file_table[fd], path, (uint8_t)flags);
+            if (result != 0) {
+                free_fd(fd);
+                r->eax = -1;
+            } else {
+                r->eax = fd;
+            }
+            break;
+        }
+
+		case SYS_REBOOT:
+            term_puts("\nRebooting system...\n");
+            power_reboot();
+            break;
+            
+        case SYS_SHUTDOWN:
+            term_puts("\nShutting down...\n");
+            power_shutdown();
+            break;
+            
+        case SYS_HALT:
+            term_puts("\nSystem halted.\n");
+            power_halt();
+            break;
+
+        default:
+            term_puts("[unknown syscall]\n");
+            r->eax = -1;
+            break;
+    }
+}
+
+__attribute__((used))
+int write(int fd, const char* buf, uint32_t len) {
+    return syscall_invoke(SYS_WRITE, fd, (int)buf, len);
+}
+
+__attribute__((used))
+int read(int fd, char* buf, uint32_t len) {
+    if (fd != 0) return -1;
+    return syscall_invoke(SYS_READ, (int)buf, len, 0);
+}
+
+__attribute__((used))
+void exit(void) {
+    syscall_invoke(SYS_EXIT, 0, 0, 0);
+    for (;;) {}
+}
+
+__attribute__((used))
+void clear(void) {
+    syscall_invoke(SYS_CLEAR, 0, 0, 0);
+}
+
+__attribute__((used))
+int disk_read(uint32_t lba, void* buffer) {
+    return syscall_invoke(SYS_DISK_READ, lba, (int)buffer, 0);
+}
+
+__attribute__((used))
+int disk_write(uint32_t lba, const void* buffer) {
+    return syscall_invoke(SYS_DISK_WRITE, lba, (int)buffer, 0);
+}
+
+__attribute__((used))
+void sleep_sys(uint32_t ms) {
+    syscall_invoke(SYS_SLEEP, ms, 0, 0);
+}
+
+__attribute__((used))
+int open(const char* path, int flags) {
+    return syscall_invoke(SYS_OPEN, (int)path, flags, 0);
+}
+
+__attribute__((used))
+int close(int fd) {
+    return syscall_invoke(SYS_CLOSE, fd, 0, 0);
+}
+
+__attribute__((used))
+int file_read(int fd, void* buffer, uint32_t size) {
+    return syscall_invoke(SYS_FILE_READ, fd, (int)buffer, size);
+}
+
+__attribute__((used))
+int file_write(int fd, const void* buffer, uint32_t size) {
+    return syscall_invoke(SYS_FILE_WRITE, fd, (int)buffer, size);
+}
+
+__attribute__((used))
+int seek(int fd, int offset, int whence) {
+    return syscall_invoke(SYS_SEEK, fd, offset, whence);
+}
+
+__attribute__((used))
+int unlink(const char* path) {
+    return syscall_invoke(SYS_UNLINK, (int)path, 0, 0);
+}
+
+__attribute__((used))
+int mkdir(const char* path) {
+    return syscall_invoke(SYS_MKDIR, (int)path, 0, 0);
+}
+
+__attribute__((used))
+int readdir_sys(uint32_t cluster, uint32_t* index, void* info) {
+    return syscall_invoke(SYS_READDIR, cluster, (int)index, (int)info);
+}
+
+__attribute__((used))
+int chdir_sys(const char* path) {
+    return syscall_invoke(SYS_CHDIR, (int)path, 0, 0);
+}
+
+__attribute__((used))
+uint32_t get_cwd_cluster_sys(void) {
+    return syscall_invoke(SYS_GET_CWD_CLUSTER, 0, 0, 0);
+}
+
+__attribute__((used))
+int net_init_sys(uint32_t ip, uint32_t gateway, uint32_t netmask) {
+    return syscall_invoke(SYS_NET_INIT, ip, gateway, netmask);
+}
+
+__attribute__((used))
+int ping_sys(uint32_t ip) {
+    return syscall_invoke(SYS_PING, ip, 0, 0);
+}
+
+__attribute__((used))
+int ping_status_sys(void) {
+    return syscall_invoke(SYS_PING_STATUS, 0, 0, 0);
+}
+
+__attribute__((used))
+void ping_reset_sys(void) {
+    syscall_invoke(SYS_PING_RESET, 0, 0, 0);
+}
+
+__attribute__((used))
+int arp_request_sys(uint32_t ip) {
+    return syscall_invoke(SYS_ARP_REQUEST, ip, 0, 0);
+}
+
+__attribute__((used))
+int arp_lookup_sys(uint32_t ip, uint8_t* mac) {
+    return syscall_invoke(SYS_ARP_LOOKUP, ip, (int)mac, 0);
+}
+
+__attribute__((used))
+void arp_print_table_sys(void) {
+    syscall_invoke(SYS_ARP_PRINT, 0, 0, 0);
+}
+
+__attribute__((used))
+int get_net_status_sys(net_status_t* status) {
+    return syscall_invoke(SYS_NET_STATUS, (int)status, 0, 0);
+}
+
+__attribute__((used))
+int arp_add_sys(uint32_t ip, uint8_t* mac) {
+    return syscall_invoke(SYS_ARP_ADD, ip, (int)mac, 0);
+}
+
+__attribute__((used))
+int arp_get_entry_sys(int index, arp_entry_sys_t* entry) {
+    return syscall_invoke(SYS_ARP_GET_ENTRY, index, (int)entry, 0);
+}
+
+__attribute__((used))
+void reboot_sys(void) {
+    syscall_invoke(SYS_REBOOT, 0, 0, 0);
+}
+
+__attribute__((used))
+void shutdown_sys(void) {
+    syscall_invoke(SYS_SHUTDOWN, 0, 0, 0);
+}
+
+__attribute__((used))
+void halt_sys(void) {
+    syscall_invoke(SYS_HALT, 0, 0, 0);
+}
+
+__attribute__((used))
+void yield(void) {
+    syscall_invoke(SYS_YIELD, 0, 0, 0);
+}
+
+__attribute__((used))
+void ps_sys(void) {
+    syscall_invoke(SYS_PS, 0, 0, 0);
+}
+
+__attribute__((used))
+int kill(int pid) {
+    return syscall_invoke(SYS_KILL, pid, 0, 0);
+}
+
+__attribute__((used))
+int getcwd(char* buf, int size) {
+    return syscall_invoke(SYS_GETCWD, (int)buf, size, 0);
+}
+
+__attribute__((used))
+int exec_sys(const char* path) {
+    return syscall_invoke(SYS_EXEC, (int)path, 0, 0);
+}
