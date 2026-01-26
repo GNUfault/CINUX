@@ -10,7 +10,7 @@ enable_language(ASM_NASM)
 set(BUILD_DIR ${CMAKE_BINARY_DIR}/out)
 set(ISO_DIR ${CMAKE_BINARY_DIR}/iso)
 set(DISK_IMG ${BUILD_DIR}/disk.img)
-set(ISO_IMG ${BUILD_DIR}/QuantumKernel.iso)
+set(ISO_IMG ${BUILD_DIR}/cinux.iso)
 
 set(CFLAGS -std=c99 -ffreestanding -nostdlib -fno-builtin -fno-stack-protector -Wall -Wextra -Werror -I${CMAKE_SOURCE_DIR}/include -m32)
 set(ASFLAGS -f elf32)
