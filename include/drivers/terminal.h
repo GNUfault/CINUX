@@ -1,16 +1,15 @@
-#ifndef FB_TERMINAL_H
-#define FB_TERMINAL_H
+#ifndef TERMINAL_H
+#define TERMINAL_H
 
 #include <stdint.h>
 
 #define TERM_COLOR_BG      0x00000000   
-#define TERM_COLOR_FG      0x00D3D3D3
+#define TERM_COLOR_FG      0x00C0C0C0
 
 #define TERM_COLOR_OK      0x0000FF00  
 #define TERM_COLOR_FAIL    0x00FF0000   
 #define TERM_COLOR_WARN    0x00FFA500   
 
-void term_init(void);
 void term_clear(void);
 void term_putc(char c);
 void term_puts(const char* s);

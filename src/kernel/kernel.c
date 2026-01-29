@@ -19,32 +19,19 @@
 #include "drivers/mouse.h"
 #include "kernel/memory.h"
 #include "cpu/paging.h"
+#include "kernel/panic.h"
 
-void kernel_main(uint32_t magic, uint32_t mb_addr) {
-    (void)magic;
+void kernel_main(uint32_t magic, uint32_t mb_addr) { // Please remove "uint32_t magic"
+    (void)magic; // And this
     multiboot_info_t *mbi = (multiboot_info_t*)mb_addr;
-    int fb_ok = 0;
-    
-    if (
-        (mbi->flags & (1 << 12)) &&
-        mbi->framebuffer_type == 1 &&
-        (mbi->framebuffer_bpp == 24 || mbi->framebuffer_bpp == 32) &&
-        mbi->framebuffer_addr != 0 &&
-        mbi->framebuffer_pitch != 0
-    )
-    {
-        term_init_fb(
-            (uint32_t)mbi->framebuffer_addr,
-            mbi->framebuffer_width,
-            mbi->framebuffer_height,
-            mbi->framebuffer_pitch,
-            mbi->framebuffer_bpp
-        );
-        fb_ok = 1;
-    }
-    
-    if (!fb_ok)
-        term_init();
+
+    term_init_fb(
+        (uint32_t)mbi->framebuffer_addr,
+                  mbi->framebuffer_width,
+                  mbi->framebuffer_height,
+                  mbi->framebuffer_pitch,
+                  mbi->framebuffer_bpp
+    );
 
     gdt_init();
     tss_init();
@@ -57,10 +44,7 @@ void kernel_main(uint32_t magic, uint32_t mb_addr) {
     pic_remap();
     idt_init();
     ata_init();
-    ata_error_t err = ata_identify();
-    if (err != ATA_OK)
-    {
-    }
+    ata_identify();
     fat32_init();
     fat32_mount();
     load_timezone();
@@ -73,7 +57,13 @@ void kernel_main(uint32_t magic, uint32_t mb_addr) {
     task_init();
     __asm__ volatile("sti");
     
-    task_create(enter_user, "init");
-    
-    task_schedule();
+    fat32_file_t init;
+    if (fat32_open(&init, "INIT.ELF", FAT32_O_RDONLY) == 0) {
+        fat32_close(&init);
+        task_create(enter_user, "init");
+        task_schedule();
+        panic("init killed!!", 52);
+    } else {
+        panic("init not found!", 51);
+    }
 }
