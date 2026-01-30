@@ -13,8 +13,8 @@ dd 0
 dd 0
 dd 0
 dd 0
-dd 1024
-dd 768
+dd 1920
+dd 1080
 dd 32
 
 section .bss

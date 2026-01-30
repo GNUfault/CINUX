@@ -3,7 +3,6 @@
 #include <string.h>
 #include "drivers/font.h"
 #include "drivers/terminal.h"
-#include "drivers/mouse.h"
 
 static uint8_t *fb;
 static uint32_t fb_width;

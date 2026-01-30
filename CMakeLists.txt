@@ -109,7 +109,7 @@ file(WRITE \"\${GRUB_CFG}\" \"set timeout=0
 set default=0
 menuentry \\\"QuantumKernel\\\" {
     multiboot /boot/kernel.elf
-    set gfxpayload=1024x768x32
+    set gfxpayload=1920x1080x32
     boot
 }
 \")

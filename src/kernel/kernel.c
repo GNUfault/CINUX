@@ -16,7 +16,6 @@
 #include "drivers/rtc.h"
 #include "lib/string.h"
 #include "drivers/pci.h"
-#include "drivers/mouse.h"
 #include "kernel/memory.h"
 #include "cpu/paging.h"
 #include "kernel/panic.h"
