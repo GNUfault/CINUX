@@ -100,11 +100,7 @@ add_custom_target(disk ALL DEPENDS ${DISK_IMG})
 
 add_custom_command(
     TARGET disk POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E echo "UTC+3" >${BUILD_DIR}/tz.txt
-    COMMAND mcopy -i ${DISK_IMG} -o ${BUILD_DIR}/tz.txt ::tz.txt
-    COMMAND ${CMAKE_COMMAND} -E echo "Type help to view commands, thanks for download \\<3" >${BUILD_DIR}/help.txt
-    COMMAND mcopy -i ${DISK_IMG} -o ${BUILD_DIR}/help.txt ::help.txt
-    COMMAND test -f ${BUILD_DIR}/hello.elf && mcopy -i ${DISK_IMG} -o ${BUILD_DIR}/hello.elf ::hello.elf || true
+    COMMAND test -f ${BUILD_DIR}/init.elf && mcopy -i ${DISK_IMG} -o ${BUILD_DIR}/init.elf ::init.elf || true
     COMMENT "Writing files to disk image"
 )
 
