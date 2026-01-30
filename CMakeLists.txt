@@ -1,6 +1,5 @@
 cmake_minimum_required(VERSION 3.10)
 project(CINUX C ASM)
-
 set(CMAKE_C_COMPILER gcc)
 set(CMAKE_ASM_NASM_COMPILER nasm)
 set(CMAKE_ASM_NASM_OBJECT_FORMAT elf32)
@@ -10,48 +9,33 @@ enable_language(ASM_NASM)
 set(BUILD_DIR ${CMAKE_BINARY_DIR}/out)
 set(ISO_DIR ${CMAKE_BINARY_DIR}/iso)
 set(DISK_IMG ${BUILD_DIR}/disk.img)
-set(ISO_IMG ${BUILD_DIR}/cinux.iso)
-
+set(ISO_IMG ${BUILD_DIR}/CINUX.iso)
 set(CFLAGS -std=c99 -ffreestanding -nostdlib -fno-builtin -fno-stack-protector -Wall -Wextra -Werror -I${CMAKE_SOURCE_DIR}/include -m32)
 set(ASFLAGS -f elf32)
 set(LDFLAGS -m elf_i386)
 
-set(SRC_DIRS
-    src/kernel src/cpu src/drivers src/mm src/user src/syscall src/lib src/fs src/errors
-    src/drivers/pci src/drivers/rtl8139 src/drivers/net
-)
-
-file(GLOB_RECURSE ASM_SOURCES 
-    src/kernel/*.asm src/cpu/*.asm src/drivers/*.asm src/mm/*.asm 
-    src/user/*.asm src/syscall/*.asm src/lib/*.asm src/fs/*.asm 
-    src/errors/*.asm src/drivers/pci/*.asm src/drivers/rtl8139/*.asm 
-    src/drivers/net/*.asm
-)
-
-file(GLOB_RECURSE C_SOURCES 
-    src/kernel/*.c src/cpu/*.c src/drivers/*.c src/mm/*.c 
-    src/user/*.c src/syscall/*.c src/lib/*.c src/fs/*.c 
-    src/errors/*.c src/drivers/pci/*.c src/drivers/rtl8139/*.c 
-    src/drivers/net/*.c
-)
-
+file(GLOB_RECURSE ASM_SOURCES CONFIGURE_DEPENDS "src/*.asm")
+file(GLOB_RECURSE C_SOURCES CONFIGURE_DEPENDS "src/*.c")
 set_source_files_properties(${ASM_SOURCES} PROPERTIES LANGUAGE ASM_NASM)
 
 add_executable(kernel.elf ${ASM_SOURCES} ${C_SOURCES})
+
 target_compile_options(kernel.elf PRIVATE 
     $<$<COMPILE_LANGUAGE:C>:${CFLAGS}>
 )
+
 set_target_properties(kernel.elf PROPERTIES 
     RUNTIME_OUTPUT_DIRECTORY ${BUILD_DIR}
     SUFFIX ""
-    LINK_DEPENDS ${CMAKE_SOURCE_DIR}/src/kernel/link.ld
-)
-set_target_properties(kernel.elf PROPERTIES LINK_FLAGS "-m32 -nostdlib")
-target_link_options(kernel.elf PRIVATE 
-    "LINKER:-m,elf_i386"
-    "LINKER:-T,${CMAKE_SOURCE_DIR}/src/kernel/link.ld"
+    LINK_DEPENDS ..//link.ld
 )
 
+set_target_properties(kernel.elf PROPERTIES LINK_FLAGS "-m32 -nostdlib")
+
+target_link_options(kernel.elf PRIVATE 
+    "LINKER:-m,elf_i386"
+    "LINKER:-T,../link.ld"
+)
 if(EXISTS ${CMAKE_SOURCE_DIR}/userspace/libc)
     file(GLOB LIBC_SOURCES ${CMAKE_SOURCE_DIR}/userspace/libc/src/*.c)
     
@@ -127,7 +111,6 @@ add_custom_command(
 file(WRITE ${CMAKE_BINARY_DIR}/write_grub_cfg.cmake "
 file(WRITE \"\${GRUB_CFG}\" \"set timeout=0
 set default=0
-
 menuentry \\\"QuantumKernel\\\" {
     multiboot /boot/kernel.elf
     set gfxpayload=1024x768x32
