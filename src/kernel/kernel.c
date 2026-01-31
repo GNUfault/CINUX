@@ -79,8 +79,8 @@ void kernel_main(uint32_t magic, uint32_t mb_addr) { // Please remove "uint32_t 
         fat32_close(&init);
         task_create(enter_user, "init");
         task_schedule();
-        panic("init killed!!", 52);
+        panic("init killed!");
     } else {
-        panic("init not found!", 51);
+        panic("init not found!");
     }
 }
