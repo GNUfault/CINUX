@@ -16,6 +16,10 @@ static uint8_t caps_lock = 0;
 static uint8_t num_lock = 0;
 static uint8_t scroll_lock = 0;
 
+#define MAX_WAITERS 16
+static void* waiters[MAX_WAITERS];
+static int waiter_count = 0;
+
 #define KEY_UP    0x80
 #define KEY_DOWN  0x81
 #define KEY_LEFT  0x82
@@ -88,6 +92,32 @@ static void update_leds(void) {
     while (inb(KBD_STATUS) & 0x02);
     
     outb(KBD_DATA, led_state);
+}
+
+void kbd_add_waiter(void* task) {
+    if (waiter_count < MAX_WAITERS) {
+        waiters[waiter_count++] = task;
+    }
+}
+
+void kbd_remove_waiter(void* task) {
+    for (int i = 0; i < waiter_count; i++) {
+        if (waiters[i] == task) {
+            for (int j = i; j < waiter_count - 1; j++) {
+                waiters[j] = waiters[j + 1];
+            }
+            waiter_count--;
+            return;
+        }
+    }
+}
+
+static void kbd_wakeup_waiters(void) {
+    extern void task_wakeup(void* task);
+    for (int i = 0; i < waiter_count; i++) {
+        task_wakeup(waiters[i]);
+    }
+    waiter_count = 0;
 }
 
 void keyboard_irq(void) {
@@ -224,6 +254,7 @@ static void kbd_push(char c) {
     if (next != kbd_tail) {
         kbd_buf[kbd_head] = c;
         kbd_head = next;
+        kbd_wakeup_waiters();
     }
 }
 
@@ -244,6 +275,7 @@ void kbd_init(void) {
     num_lock = 1;
     scroll_lock = 0;
     extended = 0;
+    waiter_count = 0;
     
     update_leds();
 }

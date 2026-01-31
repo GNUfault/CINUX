@@ -9,6 +9,7 @@
 typedef enum {
     TASK_RUNNING,
     TASK_SLEEPING,
+    TASK_WAITING,
     TASK_ZOMBIE
 } task_state_t;
 
@@ -31,6 +32,8 @@ task_t* task_current(void);
 void task_set_current(task_t* t);
 void task_exit(void);
 void task_sleep(uint32_t ms);
+void task_wait(void);
+void task_wakeup(void* task);
 task_t* task_get_list(void);
 int task_kill(int pid);
 

@@ -81,6 +81,19 @@ void task_sleep(uint32_t ms) {
     sleep(ms);
 }
 
+void task_wait(void) {
+    task_t* cur = task_current();
+    cur->state = TASK_WAITING;
+    task_schedule();
+}
+
+void task_wakeup(void* task) {
+    task_t* t = (task_t*)task;
+    if (t && t->state == TASK_WAITING) {
+        t->state = TASK_RUNNING;
+    }
+}
+
 task_t* task_get_list(void) {
     return task_list;
 }

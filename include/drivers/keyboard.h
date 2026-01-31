@@ -26,6 +26,7 @@
 
 void kbd_init(void);
 int kbd_pop(void);
-void kbd_init(void);
+void kbd_add_waiter(void* task);
+void kbd_remove_waiter(void* task);
 
 #endif

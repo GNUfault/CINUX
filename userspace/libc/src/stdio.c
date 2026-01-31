@@ -29,12 +29,9 @@ static int syscall_read(int fd, char* buf, uint32_t len) {
 
 int getchar(void) {
     char c;
-    while (1) {
-        int result = syscall_read(0, &c, 1);
-        if (result > 0) {
-            return (unsigned char)c;
-        }
-        usleep(10);
+    int result = syscall_read(0, &c, 1);
+    if (result > 0) {
+        return (unsigned char)c;
     }
     return EOF;
 }

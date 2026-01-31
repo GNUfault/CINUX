@@ -2,6 +2,7 @@
 
 #define USLEEP 7
 #define WRITE  1
+#define READ   2
 
 static inline int syscall(int num, int arg1, int arg2, int arg3) {
     int ret;
@@ -20,4 +21,8 @@ void usleep(uint32_t ms) {
 
 int write(int fd, const char* buf, uint32_t len) {
     return syscall(WRITE, fd, (int)buf, len);
+}
+
+int read(int fd, char* buf, uint32_t len) {
+    return syscall(READ, (int)buf, len, 0);
 }
