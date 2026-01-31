@@ -125,7 +125,7 @@ void term_putc(char c) {
     cursor_x += FONT_WIDTH;
 }
 
-void term_puts(const char *s) {
+void printk(const char *s) {
     while (*s)
         term_putc(*s++);
 }

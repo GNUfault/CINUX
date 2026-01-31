@@ -13,9 +13,6 @@ dd 0
 dd 0
 dd 0
 dd 0
-dd 1920
-dd 1080
-dd 32
 
 section .bss
 align 16

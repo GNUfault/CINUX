@@ -32,8 +32,8 @@ void kernel_main(uint32_t magic, uint32_t mb_addr) { // Please remove "uint32_t 
                   mbi->framebuffer_bpp
     );
 
-    term_puts(
-        "Starting:\n"
+    printk(
+        "Welcome to\n"
         "  ,----..     ,---,       ,--.'|               ,--,     ,--,     \n"
         " /   /   \\ ,`--.' |   ,--,:  : |         ,--,  |'. \\   / .`|   \n"
         "|   :     :|   :  :,`--.'`|  ' :       ,'_ /|  ; \\ `\\ /' / ;   \n"

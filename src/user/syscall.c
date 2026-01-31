@@ -92,21 +92,21 @@ void syscall_dispatch(regs_t* r) {
             task_t* t = task_get_list();
             task_t* start = t;
         
-            term_puts("PID   STATE     NAME\n");
+            printk("PID   STATE     NAME\n");
         
             do {
                 char buf[32];
         
                 itoa(t->pid, buf, 10);
-                term_puts(buf);
-                term_puts("   ");
+                printk(buf);
+                printk("   ");
         
-                if (t->state == TASK_RUNNING) term_puts("RUN      ");
-                else if (t->state == TASK_SLEEPING) term_puts("SLEEP    ");
-                else term_puts("ZOMB     ");
+                if (t->state == TASK_RUNNING) printk("RUN      ");
+                else if (t->state == TASK_SLEEPING) printk("SLEEP    ");
+                else printk("ZOMB     ");
         
-                term_puts(t->name);
-                term_puts("\n");
+                printk(t->name);
+                printk("\n");
         
                 t = t->next;
             } while (t != start);
@@ -287,22 +287,22 @@ void syscall_dispatch(regs_t* r) {
         }
 
 		case SYS_REBOOT:
-            term_puts("\nRebooting system...\n");
+            printk("\nRebooting system...\n");
             power_reboot();
             break;
             
         case SYS_SHUTDOWN:
-            term_puts("\nShutting down...\n");
+            printk("\nShutting down...\n");
             power_shutdown();
             break;
             
         case SYS_HALT:
-            term_puts("\nSystem halted.\n");
+            printk("\nSystem halted.\n");
             power_halt();
             break;
 
         default:
-            term_puts("[unknown syscall]\n");
+            printk("[unknown syscall]\n");
             r->eax = -1;
             break;
     }

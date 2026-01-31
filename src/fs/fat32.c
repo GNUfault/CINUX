@@ -357,7 +357,7 @@ int fat32_mount(void) {
     memcpy(&g_fs.boot, sector_buffer, sizeof(fat32_boot_sector_t));
     
     if (g_fs.boot.bytes_per_sector != FAT32_SECTOR_SIZE) {
-        term_puts("Invalid sector size\n");
+        printk("Invalid sector size\n");
         return -1;
     }
     

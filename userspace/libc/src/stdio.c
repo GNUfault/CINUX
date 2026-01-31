@@ -1,7 +1,7 @@
 #include <stdint.h>
 #include <stdarg.h>
-#include "syscall.h"
 #include "string.h"
+#include "unistd.h"
 
 void putchar(char c) {
     write(STDOUT, &c, 1);

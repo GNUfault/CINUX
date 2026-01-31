@@ -104,22 +104,11 @@ add_custom_command(
     COMMENT "Writing files to disk image"
 )
 
-file(WRITE ${CMAKE_BINARY_DIR}/write_grub_cfg.cmake "
-file(WRITE \"\${GRUB_CFG}\" \"set timeout=0
-set default=0
-menuentry \\\"QuantumKernel\\\" {
-    multiboot /boot/kernel.elf
-    set gfxpayload=1920x1080x32
-    boot
-}
-\")
-")
-
 add_custom_command(
     OUTPUT ${ISO_IMG}
     COMMAND ${CMAKE_COMMAND} -E make_directory ${ISO_DIR}/boot/grub
     COMMAND ${CMAKE_COMMAND} -E copy ${BUILD_DIR}/kernel.elf ${ISO_DIR}/boot/kernel.elf
-    COMMAND ${CMAKE_COMMAND} -DGRUB_CFG=${ISO_DIR}/boot/grub/grub.cfg -P ${CMAKE_BINARY_DIR}/write_grub_cfg.cmake
+    COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_SOURCE_DIR}/grub.cfg ${ISO_DIR}/boot/grub/grub.cfg
     COMMAND grub-mkrescue -o ${ISO_IMG} ${ISO_DIR} 2>/dev/null || grub2-mkrescue -o ${ISO_IMG} ${ISO_DIR} 2>/dev/null
     DEPENDS ${BUILD_DIR}/kernel.elf
     COMMENT "Creating bootable ISO"
@@ -140,5 +129,5 @@ add_custom_target(run
         -no-shutdown
         -rtc base=localtime,clock=host
     DEPENDS iso disk
-    COMMENT "Running QuantumKernel in QEMU"
+    COMMENT "Running CINUX in QEMU"
 )

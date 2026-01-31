@@ -1,5 +1,8 @@
 #include <stdint.h>
 
+#define USLEEP 7
+#define WRITE  1
+
 static inline int syscall(int num, int arg1, int arg2, int arg3) {
     int ret;
     asm volatile(
@@ -12,9 +15,9 @@ static inline int syscall(int num, int arg1, int arg2, int arg3) {
 }
 
 void usleep(uint32_t ms) {
-    syscall(7, ms, 0, 0);
+    syscall(USLEEP, ms, 0, 0);
 }
 
 int write(int fd, const char* buf, uint32_t len) {
-    return syscall(1, fd, (int)buf, len);
+    return syscall(WRITE, fd, (int)buf, len);
 }
