@@ -135,6 +135,13 @@ irq11_handler:
     iret
 
 irq12_handler:
+    pushad
+    mov al, 0x20
+    out 0xA0, al
+    mov al, 0x20
+    out 0x20, al
+    popad
+    iret
 
 irq13_handler:
     pushad

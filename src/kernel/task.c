@@ -9,6 +9,16 @@ static task_t* current = 0;
 static task_t* task_list = 0;
 static int next_pid = 1;
 
+__attribute__((naked))
+static void task_wrapper(void) {
+    __asm__ volatile(
+        "pop %%eax\n"
+        "call *%%eax\n"
+        "ret\n"
+        ::: "eax"
+    );
+}
+
 task_t* task_current(void) {
     return current;
 }
@@ -30,12 +40,17 @@ task_t* task_create(void (*entry)(void), const char* name) {
     
     uint32_t* stack = kmalloc(4096);
     uint32_t stack_top = (uint32_t)stack + 4096;
+    
     stack_top -= sizeof(uint32_t);
     *(uint32_t*)stack_top = (uint32_t)task_exit;
+
+    stack_top -= sizeof(uint32_t);
+    *(uint32_t*)stack_top = (uint32_t)entry;
     
     t->esp = stack_top;
     t->ebp = stack_top;
-    t->eip = (uint32_t)entry;
+    t->eip = (uint32_t)task_wrapper;
+    
     t->state = TASK_RUNNING;
     t->pid = next_pid++;
     strncpy(t->name, name ? name : "task", TASK_NAME_LEN - 1);
@@ -63,10 +78,20 @@ void task_exit(void) {
 }
 
 void task_sleep(uint32_t ms) {
+    sleep(ms);
+}
+
+void task_wait(void) {
     task_t* cur = task_current();
-    cur->state = TASK_SLEEPING;
-    cur->wakeup_tick = get_tick_count() + ms;
+    cur->state = TASK_WAITING;
     task_schedule();
+}
+
+void task_wakeup(void* task) {
+    task_t* t = (task_t*)task;
+    if (t && t->state == TASK_WAITING) {
+        t->state = TASK_RUNNING;
+    }
 }
 
 task_t* task_get_list(void) {

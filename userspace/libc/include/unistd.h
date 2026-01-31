@@ -9,5 +9,6 @@
 
 void usleep(uint32_t ms);
 int write(int fd, const char* buf, uint32_t len);
+int read(int fd, char* buf, uint32_t len);
 
-#endif 
+#endif
