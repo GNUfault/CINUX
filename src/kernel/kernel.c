@@ -19,6 +19,7 @@
 #include "kernel/memory.h"
 #include "cpu/paging.h"
 #include "kernel/panic.h"
+#include "drivers/keyboard.h"
 
 void kernel_main(uint32_t magic, uint32_t mb_addr) { // Please remove "uint32_t magic"
     (void)magic; // And this
@@ -71,9 +72,10 @@ void kernel_main(uint32_t magic, uint32_t mb_addr) { // Please remove "uint32_t 
     pci_enumerate();
     pci_register_drivers();
     acpi_init();
+    kbd_init();
     task_init();
     __asm__ volatile("sti");
-    
+
     fat32_file_t init;
     if (fat32_open(&init, "INIT.ELF", FAT32_O_RDONLY) == 0) {
         fat32_close(&init);

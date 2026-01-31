@@ -1,9 +1,9 @@
 #include "libc/include/stdio.h"
 #include "libc/include/unistd.h"
 
-int main(void) {
+int main() {
     while(1) {
-        printf("Hello, world!\n");
+        printf("hi\n");
         usleep(1000);
     }
 }

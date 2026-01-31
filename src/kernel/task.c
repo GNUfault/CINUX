@@ -63,10 +63,11 @@ void task_exit(void) {
 }
 
 void task_sleep(uint32_t ms) {
-    task_t* cur = task_current();
-    cur->state = TASK_SLEEPING;
-    cur->wakeup_tick = get_tick_count() + ms;
-    task_schedule();
+//    task_t* cur = task_current();
+//    cur->state = TASK_SLEEPING;
+//    cur->wakeup_tick = get_tick_count() + ms;
+//    task_schedule();
+    sleep(ms);
 }
 
 task_t* task_get_list(void) {

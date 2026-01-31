@@ -128,17 +128,29 @@ void idt_init(void) {
 }
 
 void isr_handler(uint32_t int_no, uint32_t err_code, uint32_t eip, uint32_t cs, uint32_t eflags) {
-    (void)int_no;
-    (void)err_code;
-    (void)eip;
     (void)cs;
     (void)eflags;
+    
+    printk("\nEXCEPTION: ");
+    char buf[16];
+    itoa(int_no, buf, 10);
+    printk(buf);
+    printk("\n");
     
     if (int_no == 14) {
         uint32_t cr2;
         __asm__ volatile("mov %%cr2, %0" : "=r"(cr2));
+        printk("Page Fault at: 0x");
+        itoa(cr2, buf, 16);
+        printk(buf);
+        printk("\n");
     }
     
-    __asm__ volatile("cli; hlt");
-    for(;;);
+    printk("EIP: 0x");
+    itoa(eip, buf, 16);
+    printk(buf);
+    printk(" Error: 0x");
+    itoa(err_code, buf, 16);
+    printk(buf);
+    printk("\n");
 }
